@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 120 48" xmlns="http://www.w3.org/2000/svg">
+  <!-- Lightning bolt icon -->
+  <g transform="translate(8, 12)">
+    <path d="M12 0L6 16h4L4 24l8-16h-4L12 0z" fill="#58A6FF" stroke="none"/>
+  </g>
+  
+  <!-- Dinari text -->
+  <text x="32" y="32" font-family="'Segoe UI', -apple-system, system-ui, sans-serif" font-size="18" font-weight="600" fill="#58A6FF">
+    Dinari
+  </text>
+</svg>

@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "bip39": "^3.1.0",
+    "elliptic": "^6.5.4"
+  }
+}

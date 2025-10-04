@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=360, height=600">
+  <title>Dinari Wallet</title>
+  <link rel="stylesheet" href="popup.css">
+  
+  <!-- Local Cryptography Libraries -->
+  <script src="../lib/vendor/elliptic.min.js"></script>
+  <script src="../lib/vendor/crypto-js.min.js"></script>
+  <script src="../lib/vendor/qrcode.min.js"></script>
+</head>
+<body>
+
+  <!-- SCREEN 1: Welcome Screen -->
+  <div id="welcomeScreen" class="container hidden">
+    <div class="flex flex-col items-center justify-center" style="height: 100%; padding: 32px;">
+      <div class="text-center mb-4">
+        <h1 class="text-gradient-accent" style="font-size: 36px; margin-bottom: 16px;">Dinari</h1>
+        <p class="text-muted">Your Gateway to DNT & AFC</p>
+      </div>
+      <div style="margin-top: 48px; width: 100%;">
+        <button id="btnCreateWallet" class="btn btn-primary w-full mb-4">Create New Wallet</button>
+        <button id="btnImportWallet" class="btn btn-secondary w-full">Import Existing Wallet</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCREEN 2: Create Wallet - Password Setup -->
+  <div id="createPasswordScreen" class="container hidden">
+    <div class="animate-slideUp">
+      <h2 class="mb-4">Create Password</h2>
+      <p class="text-muted mb-4">This password will encrypt your wallet. Keep it safe.</p>
+      
+      <form id="createPasswordForm">
+        <div class="input-group">
+          <label class="input-label">Password</label>
+          <input type="password" id="newPassword" class="input" placeholder="Enter password (min 8 characters)" required minlength="8">
+        </div>
+        
+        <div class="input-group">
+          <label class="input-label">Confirm Password</label>
+          <input type="password" id="confirmPassword" class="input" placeholder="Re-enter password" required>
+          <span id="passwordError" class="error-message hidden">Passwords do not match</span>
+        </div>
+        
+        <button type="submit" class="btn btn-primary w-full mt-4">Continue</button>
+        <button type="button" id="btnBackToWelcome" class="btn btn-ghost w-full mt-4">Back</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- SCREEN 3: Seed Phrase Display -->
+  <div id="seedPhraseScreen" class="container hidden">
+    <div class="animate-slideUp">
+      <h2 class="mb-4">Your Seed Phrase</h2>
+      <p class="text-muted mb-4">Write down these 12 words in order. You'll need them to recover your wallet.</p>
+      
+      <div class="glass-card mb-4">
+        <div id="seedPhraseDisplay" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-family: monospace;"></div>
+      </div>
+      
+      <div class="flex items-center gap-2 mb-4" style="padding: 12px; background: hsl(var(--african-gold) / 0.1); border-radius: var(--radius-md);">
+        <input type="checkbox" id="seedSavedCheckbox" style="width: 18px; height: 18px;">
+        <label for="seedSavedCheckbox" class="text-sm">I have safely saved my seed phrase</label>
+      </div>
+      
+      <button id="btnCopySeed" class="btn btn-secondary w-full mb-4">Copy to Clipboard</button>
+      <button id="btnVerifySeed" class="btn btn-primary w-full" disabled>Continue</button>
+    </div>
+  </div>
+
+  <!-- SCREEN 4: Verify Seed Phrase -->
+  <div id="verifySeedScreen" class="container hidden">
+    <div class="animate-slideUp">
+      <h2 class="mb-4">Verify Seed Phrase</h2>
+      <p class="text-muted mb-4">Enter the following words from your seed phrase to confirm you saved it.</p>
+      
+      <form id="verifySeedForm">
+        <div class="input-group">
+          <label class="input-label">Word #<span id="verifyWord1Num"></span></label>
+          <input type="text" id="verifyWord1" class="input" placeholder="Enter word" required>
+        </div>
+        
+        <div class="input-group">
+          <label class="input-label">Word #<span id="verifyWord2Num"></span></label>
+          <input type="text" id="verifyWord2" class="input" placeholder="Enter word" required>
+        </div>
+        
+        <div class="input-group">
+          <label class="input-label">Word #<span id="verifyWord3Num"></span></label>
+          <input type="text" id="verifyWord3" class="input" placeholder="Enter word" required>
+          <span id="verifyError" class="error-message hidden">Incorrect words. Please try again.</span>
+        </div>
+        
+        <button type="submit" class="btn btn-primary w-full mt-4">Verify & Create Wallet</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- SCREEN 5: Import Wallet -->
+  <div id="importWalletScreen" class="container hidden">
+    <div class="animate-slideUp">
+      <h2 class="mb-4">Import Wallet</h2>
+      <p class="text-muted mb-4">Enter your private key to import your existing wallet.</p>
+      
+      <form id="importWalletForm">
+        <div class="input-group">
+          <label class="input-label">Private Key (64 characters)</label>
+          <input type="password" id="importPrivateKey" class="input" placeholder="Enter your private key" required pattern="[a-fA-F0-9]{64}">
+          <span id="importError" class="error-message hidden">Invalid private key format</span>
+        </div>
+        
+        <div class="input-group">
+          <label class="input-label">Password</label>
+          <input type="password" id="importPassword" class="input" placeholder="Create a password for this wallet" required minlength="8">
+        </div>
+        
+        <div class="input-group">
+          <label class="input-label">Confirm Password</label>
+          <input type="password" id="importConfirmPassword" class="input" placeholder="Re-enter password" required>
+        </div>
+        
+        <button type="submit" class="btn btn-primary w-full mt-4">Import Wallet</button>
+        <button type="button" id="btnBackToWelcomeFromImport" class="btn btn-ghost w-full mt-4">Back</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- SCREEN 6: Login Screen (UPDATED - Bigger Logo) -->
+  <div id="loginScreen" class="container hidden">
+    <div class="flex flex-col items-center justify-center" style="height: 100%; padding: 32px;">
+      <div class="text-center" style="margin-top: -60px;">
+        <div style="font-size: 96px; margin-bottom: 24px;">⚡</div>
+        <h1 class="text-gradient-accent" style="font-size: 56px; margin-bottom: 12px; font-weight: 700;">Dinari</h1>
+        <p class="text-muted" style="font-size: 16px;">Welcome back</p>
+      </div>
+      
+      <form id="loginForm" style="width: 100%; margin-top: 100px;">
+        <div class="input-group">
+          <label class="input-label">Password</label>
+          <input type="password" id="loginPassword" class="input" placeholder="Enter your password" required>
+          <span id="loginError" class="error-message hidden">Incorrect password</span>
+        </div>
+        
+        <button type="submit" class="btn btn-primary w-full mt-4">Unlock</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- SCREEN 7: Main Wallet Screen (UPDATED - Bottom Navigation) -->
+  <div id="mainWalletScreen" class="container hidden">
+    <div class="header">
+      <div class="header-logo">
+        <span style="font-size: 24px;">⚡</span>
+        <span style="font-weight: 700; font-size: 20px;">Dinari</span>
+      </div>
+      <div class="header-actions">
+        <button id="btnRefreshBalance" class="btn btn-icon btn-ghost" title="Refresh">
+          <span>↻</span>
+        </button>
+        <button id="btnSettings" class="btn btn-icon btn-ghost" title="Settings">
+          <span>⚙</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Wallet Tab Content -->
+    <div id="walletTabContent" style="padding: 16px; padding-bottom: 80px; display: block;">
+      <!-- Network Status -->
+      <div class="flex items-center justify-between mb-4" style="padding: 8px 12px; background: hsl(var(--card)); border-radius: var(--radius-sm); font-size: 12px;">
+        <span class="text-muted">Block Height:</span>
+        <span id="blockHeight" class="text-primary">Loading...</span>
+      </div>
+
+      <!-- Balance Display -->
+      <div class="balance-card">
+        <div class="balance-label">Total Balance</div>
+        <div class="balance-amount text-gradient-primary" id="totalBalance">0.00</div>
+        <div class="balance-usd" id="totalBalanceUSD">≈ $0.00</div>
+        
+        <div class="balance-tokens">
+          <div class="token-balance">
+            <div class="token-label">DNT</div>
+            <div class="token-amount" id="dntBalance">0.00</div>
+          </div>
+          <div class="token-balance">
+            <div class="token-label">AFC</div>
+            <div class="token-amount" id="afcBalance">0.00</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Address Display -->
+      <div class="address-card" id="addressCard">
+        <span class="address-text" id="walletAddress">Loading...</span>
+        <button class="btn btn-icon btn-ghost" id="btnCopyAddress" title="Copy Address">
+          <span>📋</span>
+        </button>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="action-buttons">
+        <button id="btnSend" class="btn btn-send">Send</button>
+        <button id="btnReceive" class="btn btn-receive">Receive</button>
+      </div>
+
+      <!-- Recent Transactions -->
+      <div>
+        <div class="flex justify-between items-center mb-4">
+          <h3>Recent Transactions</h3>
+          <button id="btnViewAllTx" class="btn btn-ghost" style="padding: 6px 12px; font-size: 12px;">View All</button>
+        </div>
+        <div id="recentTxList" class="tx-list">
+          <div class="text-center text-muted" style="padding: 32px;">
+            No transactions yet
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dapps Tab Content (NEW) -->
+    <div id="dappsTabContent" style="padding: 16px; padding-bottom: 80px; display: none;">
+      <h2 style="margin-bottom: 24px;">Decentralized Apps</h2>
+      
+      <div class="glass-card mb-4">
+        <div class="flex items-center gap-3 mb-2">
+          <div style="font-size: 32px;">🏠</div>
+          <div style="flex: 1;">
+            <h3 style="margin: 0; font-size: 16px;">Real Estate</h3>
+            <p class="text-muted" style="margin: 4px 0 0 0; font-size: 12px;">Tokenized property investments</p>
+          </div>
+        </div>
+        <div style="margin-top: 12px; padding: 8px 12px; background: hsl(var(--african-gold) / 0.1); border-radius: var(--radius-sm); text-align: center;">
+          <span style="color: hsl(var(--african-gold)); font-weight: 600; font-size: 13px;">Coming Soon</span>
+        </div>
+      </div>
+
+      <div class="glass-card mb-4">
+        <div class="flex items-center gap-3 mb-2">
+          <div style="font-size: 32px;">🏦</div>
+          <div style="flex: 1;">
+            <h3 style="margin: 0; font-size: 16px;">Banking</h3>
+            <p class="text-muted" style="margin: 4px 0 0 0; font-size: 12px;">DeFi lending and savings</p>
+          </div>
+        </div>
+        <div style="margin-top: 12px; padding: 8px 12px; background: hsl(var(--african-gold) / 0.1); border-radius: var(--radius-sm); text-align: center;">
+          <span style="color: hsl(var(--african-gold)); font-weight: 600; font-size: 13px;">Coming Soon</span>
+        </div>
+      </div>
+
+      <div class="glass-card mb-4">
+        <div class="flex items-center gap-3 mb-2">
+          <div style="font-size: 32px;">📊</div>
+          <div style="flex: 1;">
+            <h3 style="margin: 0; font-size: 16px;">Trading</h3>
+            <p class="text-muted" style="margin: 4px 0 0 0; font-size: 12px;">Decentralized exchange</p>
+          </div>
+        </div>
+        <div style="margin-top: 12px; padding: 8px 12px; background: hsl(var(--african-gold) / 0.1); border-radius: var(--radius-sm); text-align: center;">
+          <span style="color: hsl(var(--african-gold)); font-weight: 600; font-size: 13px;">Coming Soon</span>
+        </div>
+      </div>
+
+      <div class="glass-card mb-4">
+        <div class="flex items-center gap-3 mb-2">
+          <div style="font-size: 32px;">🎮</div>
+          <div style="flex: 1;">
+            <h3 style="margin: 0; font-size: 16px;">Gaming</h3>
+            <p class="text-muted" style="margin: 4px 0 0 0; font-size: 12px;">Play-to-earn games</p>
+          </div>
+        </div>
+        <div style="margin-top: 12px; padding: 8px 12px; background: hsl(var(--african-gold) / 0.1); border-radius: var(--radius-sm); text-align: center;">
+          <span style="color: hsl(var(--african-gold)); font-weight: 600; font-size: 13px;">Coming Soon</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Navigation (NEW) -->
+    <div style="position: fixed; bottom: 0; left: 0; right: 0; background: hsl(var(--card)); border-top: 1px solid hsl(var(--border)); display: flex; height: 60px;">
+      <button id="btnNavWallet" class="nav-tab active" style="flex: 1; border: none; background: none; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; transition: all 0.2s;">
+        <span style="font-size: 20px;">💼</span>
+        <span style="font-size: 11px;">Wallet</span>
+      </button>
+      <button id="btnNavDapps" class="nav-tab" style="flex: 1; border: none; background: none; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; transition: all 0.2s; opacity: 0.5;">
+        <span style="font-size: 20px;">🎯</span>
+        <span style="font-size: 11px;">Dapps</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- SCREEN 8: Send Transaction Screen -->
+  <div id="sendScreen" class="container hidden">
+    <div class="header">
+      <button id="btnBackToMain" class="btn btn-icon btn-ghost">
+        <span>←</span>
+      </button>
+      <h2 style="margin: 0;">Send</h2>
+      <div style="width: 36px;"></div>
+    </div>
+
+    <div style="padding: 16px;">
+      <form id="sendForm">
+        <div class="input-group">
+          <label class="input-label">Token Type</label>
+          <select id="sendTokenType" class="input select">
+            <option value="DNT">DNT</option>
+            <option value="AFC">AFC</option>
+          </select>
+        </div>
+
+        <div class="input-group">
+          <label class="input-label">Recipient Address</label>
+          <input type="text" id="sendRecipient" class="input" placeholder="D..." required pattern="D[a-zA-Z0-9]{33}">
+          <span id="recipientError" class="error-message hidden">Invalid address format</span>
+        </div>
+
+        <div class="input-group">
+          <label class="input-label">
+            Amount
+            <button type="button" id="btnMaxAmount" class="btn btn-ghost" style="padding: 2px 8px; font-size: 11px; float: right;">MAX</button>
+          </label>
+          <input type="number" id="sendAmount" class="input" placeholder="0.00" step="0.00000001" min="0" required>
+          <div class="text-xs text-muted" style="margin-top: 4px;">
+            Available: <span id="availableBalance">0.00</span> <span id="availableToken">DNT</span>
+          </div>
+        </div>
+
+        <div class="input-group">
+          <label class="input-label">Fee (DNT)</label>
+          <input type="number" id="sendFee" class="input" value="0.001" step="0.00000001" min="0.00000001" required>
+          <div class="text-xs text-muted" style="margin-top: 4px;">≈ 100,000 satoshis</div>
+        </div>
+
+        <div class="glass-card mb-4">
+          <div class="flex justify-between mb-2">
+            <span class="text-muted">Total Cost:</span>
+            <span id="totalCost" class="font-weight: 600;">0.00 DNT</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-muted">Network Fee:</span>
+            <span id="networkFee">0.001 DNT</span>
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-send w-full">Review Transaction</button>
+        <button type="button" id="btnCancelSend" class="btn btn-ghost w-full mt-4">Cancel</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- SCREEN 9: Receive Screen -->
+  <div id="receiveScreen" class="container hidden">
+    <div class="header">
+      <button id="btnBackToMainFromReceive" class="btn btn-icon btn-ghost">
+        <span>←</span>
+      </button>
+      <h2 style="margin: 0;">Receive</h2>
+      <div style="width: 36px;"></div>
+    </div>
+
+    <div style="padding: 16px; text-align: center;">
+      <p class="text-muted mb-4">Share this address to receive DNT or AFC tokens</p>
+      
+      <div class="glass-card mb-4" style="padding: 24px;">
+        <div id="qrCodeContainer" style="display: flex; justify-content: center; margin-bottom: 16px;">
+          <div style="width: 200px; height: 200px; background: white; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; color: #000;">
+            QR Code
+          </div>
+        </div>
+        
+        <div class="input-group">
+          <input type="text" id="receiveAddress" class="input text-center" readonly style="font-family: monospace; font-size: 12px;">
+        </div>
+      </div>
+
+      <button id="btnCopyReceiveAddress" class="btn btn-primary w-full">Copy Address</button>
+      <button id="btnBackToMainFromReceiveBtn" class="btn btn-ghost w-full mt-4">Done</button>
+    </div>
+  </div>
+
+  <!-- SCREEN 10: Transaction History Screen -->
+  <div id="transactionHistoryScreen" class="container hidden">
+    <div class="header">
+      <button id="btnBackToMainFromHistory" class="btn btn-icon btn-ghost">
+        <span>←</span>
+      </button>
+      <h2 style="margin: 0;">Transactions</h2>
+      <div style="width: 36px;"></div>
+    </div>
+
+    <div style="padding: 16px;">
+      <div id="txHistoryList" class="tx-list">
+        <div class="text-center text-muted" style="padding: 32px;">
+          Loading transactions...
+        </div>
+      </div>
+
+      <div id="txPagination" class="flex justify-between mt-4 hidden">
+        <button id="btnPrevPage" class="btn btn-secondary" disabled>Previous</button>
+        <span class="text-muted">Page <span id="currentPage">1</span></span>
+        <button id="btnNextPage" class="btn btn-secondary">Next</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCREEN 11: Settings Screen -->
+  <div id="settingsScreen" class="container hidden">
+    <div class="header">
+      <button id="btnBackToMainFromSettings" class="btn btn-icon btn-ghost">
+        <span>←</span>
+      </button>
+      <h2 style="margin: 0;">Settings</h2>
+      <div style="width: 36px;"></div>
+    </div>
+
+    <div style="padding: 16px;">
+      <div class="glass-card mb-4" style="cursor: pointer;" id="btnViewAddress">
+        <div class="flex justify-between items-center">
+          <span>View Full Address</span>
+          <span>→</span>
+        </div>
+      </div>
+
+      <div class="glass-card mb-4" style="cursor: pointer;" id="btnExportKey">
+        <div class="flex justify-between items-center">
+          <span>Export Private Key</span>
+          <span>→</span>
+        </div>
+      </div>
+
+      <div class="glass-card mb-4">
+        <label class="input-label">RPC Endpoint</label>
+        <input type="text" id="rpcEndpoint" class="input" value="http://https://rpctiger-testnet.dinariblockchain.network:8545">
+        <button id="btnSaveRPC" class="btn btn-secondary w-full mt-4">Save</button>
+      </div>
+
+      <button id="btnLockWallet" class="btn btn-secondary w-full mb-4">Lock Wallet</button>
+      <button id="btnClearWallet" class="btn btn-destructive w-full">Clear Wallet Data</button>
+    </div>
+  </div>
+
+  <!-- SCREEN 12: View Full Address (NEW) -->
+  <div id="viewAddressScreen" class="container hidden">
+    <div class="header">
+      <button id="btnBackToSettingsFromAddress" class="btn btn-icon btn-ghost">
+        <span>←</span>
+      </button>
+      <h2 style="margin: 0;">Your Address</h2>
+      <div style="width: 36px;"></div>
+    </div>
+
+    <div style="padding: 16px;">
+      <p class="text-muted mb-4">This is your wallet address. Share it to receive tokens.</p>
+      
+      <div class="glass-card mb-4" style="padding: 16px;">
+        <div class="text-muted text-xs mb-2">Full Address</div>
+        <div id="fullAddressDisplay" style="word-break: break-all; font-family: monospace; font-size: 13px; line-height: 1.6;"></div>
+      </div>
+
+      <button id="btnCopyFullAddress" class="btn btn-primary w-full">Copy Address</button>
+      <button id="btnBackToSettingsFromAddressBtn" class="btn btn-ghost w-full mt-4">Back</button>
+    </div>
+  </div>
+
+  <!-- SCREEN 13: Export Private Key - Password Entry (NEW) -->
+  <div id="exportKeyPasswordScreen" class="container hidden">
+    <div class="header">
+      <button id="btnBackToSettingsFromExport" class="btn btn-icon btn-ghost">
+        <span>←</span>
+      </button>
+      <h2 style="margin: 0;">Export Private Key</h2>
+      <div style="width: 36px;"></div>
+    </div>
+
+    <div style="padding: 16px;">
+      <div style="padding: 16px; background: hsl(var(--destructive) / 0.1); border: 1px solid hsl(var(--destructive) / 0.3); border-radius: var(--radius-md); margin-bottom: 24px;">
+        <div style="font-size: 24px; margin-bottom: 8px;">⚠️</div>
+        <h3 style="color: hsl(var(--destructive)); margin-bottom: 8px;">Security Warning</h3>
+        <p style="font-size: 13px; line-height: 1.5;">Your private key gives complete control of your wallet. Never share it with anyone. Anyone with your private key can steal your funds.</p>
+      </div>
+
+      <form id="exportKeyPasswordForm">
+        <div class="input-group">
+          <label class="input-label">Enter Password</label>
+          <input type="password" id="exportKeyPassword" class="input" placeholder="Enter your wallet password" required>
+          <span id="exportKeyPasswordError" class="error-message hidden">Incorrect password</span>
+        </div>
+
+        <button type="submit" class="btn btn-destructive w-full mt-4">Reveal Private Key</button>
+        <button type="button" id="btnCancelExportKey" class="btn btn-ghost w-full mt-4">Cancel</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- SCREEN 14: Export Private Key - Display (NEW) -->
+  <div id="exportKeyDisplayScreen" class="container hidden">
+    <div class="header">
+      <button id="btnBackToSettingsFromKeyDisplay" class="btn btn-icon btn-ghost">
+        <span>←</span>
+      </button>
+      <h2 style="margin: 0;">Private Key</h2>
+      <div style="width: 36px;"></div>
+    </div>
+
+    <div style="padding: 16px;">
+      <div style="padding: 12px; background: hsl(var(--destructive) / 0.1); border-radius: var(--radius-md); margin-bottom: 24px; text-align: center;">
+        <span style="color: hsl(var(--destructive)); font-weight: 600; font-size: 13px;">⚠️ Keep this safe and never share it</span>
+      </div>
+
+      <div class="glass-card mb-4" style="padding: 16px;">
+        <div class="text-muted text-xs mb-2">Your Private Key</div>
+        <div id="privateKeyDisplay" style="word-break: break-all; font-family: monospace; font-size: 12px; line-height: 1.8; user-select: all;"></div>
+      </div>
+
+      <button id="btnCopyPrivateKey" class="btn btn-destructive w-full">Copy Private Key</button>
+      <button id="btnDoneExportKey" class="btn btn-ghost w-full mt-4">Done</button>
+    </div>
+  </div>
+
+  <!-- MODAL: Transaction Confirmation -->
+  <div id="txConfirmModal" class="modal-overlay hidden">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Confirm Transaction</h3>
+        <button class="modal-close" id="btnCloseTxConfirm">&times;</button>
+      </div>
+      <div>
+        <div class="glass-card mb-4" style="font-size: 13px;">
+          <div class="flex justify-between mb-2">
+            <span class="text-muted">From:</span>
+            <span id="confirmFrom" style="font-family: monospace; font-size: 11px;"></span>
+          </div>
+          <div class="flex justify-between mb-2">
+            <span class="text-muted">To:</span>
+            <span id="confirmTo" style="font-family: monospace; font-size: 11px;"></span>
+          </div>
+          <div class="flex justify-between mb-2">
+            <span class="text-muted">Amount:</span>
+            <span id="confirmAmount" class="font-weight: 600;"></span>
+          </div>
+          <div class="flex justify-between mb-2">
+            <span class="text-muted">Fee:</span>
+            <span id="confirmFee"></span>
+          </div>
+          <div style="border-top: 1px solid hsl(var(--border)); margin: 12px 0; padding-top: 12px;">
+            <div class="flex justify-between">
+              <span class="font-weight: 600;">Total:</span>
+              <span id="confirmTotal" class="font-weight: 600;"></span>
+            </div>
+          </div>
+        </div>
+        <button id="btnConfirmSend" class="btn btn-send w-full mb-4">Confirm & Sign</button>
+        <button id="btnCancelTxConfirm" class="btn btn-ghost w-full">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Transaction Success -->
+  <div id="txSuccessModal" class="modal-overlay hidden">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Transaction Sent</h3>
+        <button class="modal-close" id="btnCloseTxSuccess">&times;</button>
+      </div>
+      <div class="text-center">
+        <div style="font-size: 48px; margin: 16px 0;">✓</div>
+        <p class="text-muted mb-4">Your transaction has been submitted to the blockchain</p>
+        <div class="glass-card mb-4" style="word-break: break-all; font-size: 11px; font-family: monospace;">
+          <div class="text-muted mb-2">Transaction Hash:</div>
+          <div id="txHash"></div>
+        </div>
+        <button id="btnCopyTxHash" class="btn btn-secondary w-full mb-4">Copy Hash</button>
+        <button id="btnViewInHistory" class="btn btn-primary w-full">View in History</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Loading -->
+  <div id="loadingModal" class="modal-overlay hidden">
+    <div class="modal" style="text-align: center;">
+      <div class="spinner" style="margin: 0 auto 16px;"></div>
+      <p id="loadingMessage">Processing...</p>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="../lib/crypto.js"></script>
+  <script src="../lib/storage.js"></script>
+  <script src="../lib/rpc.js"></script>
+  <script src="../lib/utils.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
