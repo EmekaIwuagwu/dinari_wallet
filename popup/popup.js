@@ -836,33 +836,53 @@ let allTransactions = [];
 async function loadTransactionHistory(page = 1) {
   try {
     DinariUtils.showLoading('Loading transactions...');
-    
+
     const address = await DinariStorage.getWalletAddress();
-    const txData = await DinariRPC.getTransactionsByWallet(address, page, 10);
-    
-    allTransactions = txData.transactions || [];
-    currentPage = txData.page;
-    totalPages = Math.ceil(txData.total / 10);
-    
+
+    // ✅ Get BOTH pending and confirmed
+    const [pendingData, historyData] = await Promise.all([
+      DinariRPC.getTransactionsByWallet(address, 50).catch(() => ({ transactions: [] })),
+      DinariRPC.getTransactionHistory(address, 100).catch(() => ({ transactions: [] }))
+    ]);
+
+    const pendingTxs = pendingData.transactions || [];
+    const confirmedTxs = historyData.transactions || [];
+
+    // Merge and sort by timestamp
+    const allTxs = [...pendingTxs, ...confirmedTxs];
+    allTxs.sort((a, b) => b.timestamp - a.timestamp);
+
+    // Client-side pagination
+    const itemsPerPage = 10;
+    const startIndex = (page - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    allTransactions = allTxs.slice(startIndex, endIndex);
+
+    currentPage = page;
+    totalPages = Math.ceil(allTxs.length / itemsPerPage);
+
     const listEl = document.getElementById('txHistoryList');
     listEl.innerHTML = '';
-    
+
     if (allTransactions.length === 0) {
       listEl.innerHTML = '<div class="text-center text-muted" style="padding: 32px;">No transactions found</div>';
       DinariUtils.hideLoading();
       return;
     }
-    
+
     allTransactions.forEach(tx => {
       const txEl = createTransactionElement(tx, address);
       listEl.appendChild(txEl);
     });
-    
-    // Update pagination
-    updatePagination(txData);
-    
+
+    updatePagination({
+      page: currentPage,
+      total: allTxs.length,
+      hasMore: currentPage < totalPages
+    });
+
     DinariUtils.hideLoading();
-    
+
   } catch (error) {
     console.error('Failed to load transaction history:', error);
     DinariUtils.hideLoading();
