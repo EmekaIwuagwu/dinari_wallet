@@ -484,23 +484,36 @@ async function updateBlockHeight() {
 async function updateRecentTransactions() {
   try {
     const address = await DinariStorage.getWalletAddress();
-    const txData = await DinariRPC.getTransactionsByWallet(address, 1, 5);
-    
-    recentTransactions = txData.transactions || [];
-    
+
+    // Get both pending (mempool) and confirmed (blockchain) transactions
+    const [pendingData, historyData] = await Promise.all([
+      DinariRPC.getTransactionsByWallet(address, 10).catch(() => ({ transactions: [] })),
+      DinariRPC.getTransactionHistory(address, 10).catch(() => ({ transactions: [] }))
+    ]);
+
+    const pendingTxs = pendingData.transactions || [];
+    const confirmedTxs = historyData.transactions || [];
+
+    // Merge and sort by timestamp (newest first)
+    const allTxs = [...pendingTxs, ...confirmedTxs];
+    allTxs.sort((a, b) => b.timestamp - a.timestamp);
+
+    // Take only the 5 most recent
+    recentTransactions = allTxs.slice(0, 5);
+
     const listEl = document.getElementById('recentTxList');
     listEl.innerHTML = '';
-    
+
     if (recentTransactions.length === 0) {
       listEl.innerHTML = '<div class="text-center text-muted" style="padding: 32px;">No transactions yet</div>';
       return;
     }
-    
+
     recentTransactions.forEach(tx => {
       const txEl = createTransactionElement(tx, address);
       listEl.appendChild(txEl);
     });
-    
+
   } catch (error) {
     console.error('Failed to load transactions:', error);
     const listEl = document.getElementById('recentTxList');
