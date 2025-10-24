@@ -9,7 +9,8 @@
   ],
   "host_permissions": [
     "https://rpctiger-testnet.dinariblockchain.network/*",
-    "http://127.0.0.1:8545/*"
+    "http://127.0.0.1:8545/*",
+    "https://52.241.1.239:8545/*"
   ],
   "action": {
     "default_popup": "popup/popup.html",
